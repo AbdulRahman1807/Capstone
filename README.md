@@ -1,175 +1,279 @@
-# Fraud Transaction Detection System
+# 💳 Fraud Detection System  
+### Transaction Risk Assessment using Machine Learning  
 
-A comprehensive machine learning project for detecting fraudulent transactions using Random Forest and XGBoost algorithms.
+---
 
-## Project Overview
+## ✅ Project Overview
 
-**Domain:** Financial Security  
-**Algorithms:** Random Forest, XGBoost  
-**Optimization Techniques:**
-- Max Depth tuning
-- Learning Rate tuning
-- GridSearchCV
-- Feature Selection
+This project builds and deploys a **Fraud Detection System** using Machine Learning models optimized for **high recall** (fraud detection priority).
 
-## Project Structure
+The system:
 
+✔ Trains multiple ML models  
+✔ Performs hyperparameter tuning  
+✔ Selects the best model based on Recall  
+✔ Saves production artifacts (`optimal_model.pkl`)  
+✔ Deploys via a black-themed Streamlit enterprise dashboard  
+
+---
+
+## 🎯 Business Objective
+
+Fraud detection is a **high-recall classification problem**.
+
+- ❌ False Negative → Fraud missed → Financial loss  
+- ⚠ False Positive → Transaction investigated  
+
+Therefore, we optimize for:
+
+✔ **Recall (Fraud class)**  
+✔ ROC-AUC  
+
+---
+
+## 📊 Dataset
+
+**File Used:**
 ```
-capstone/
-├── Stori_Data_Challenge_2021..csv    # Dataset
-├── fraud_detection_pipeline.py      # Main ML pipeline
-├── app.py                           # Streamlit web application
-├── requirements.txt                 # Python dependencies
-└── README.md                        # This file
-```
-
-## Installation
-
-1. **Clone or navigate to the project directory:**
-   ```bash
-   cd /path/to/capstone
-   ```
-
-2. **Create a virtual environment (recommended):**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-### Step 1: Run the ML Pipeline
-
-First, run the main pipeline to train models and generate pickle files:
-
-```bash
-python fraud_detection_pipeline.py
+Stori_Data_Challenge_2021..csv
 ```
 
-This will:
-- Load and preprocess the data
-- Perform feature selection
-- Scale the features
-- Split data into train/test sets
-- Train baseline Random Forest and XGBoost models
-- Perform hyperparameter tuning using GridSearchCV
-- Compare models and select the optimal one
-- Save models and preprocessors as pickle files
+**Target Column:**
+```
+fraud
+(0 = Not Fraud, 1 = Fraud)
+```
 
-**Generated Files:**
-- `optimal_model.pkl` - Best performing model
-- `rf_baseline_model.pkl` - Baseline Random Forest model
-- `rf_tuned_model.pkl` - Tuned Random Forest model
-- `xgb_baseline_model.pkl` - Baseline XGBoost model
-- `xgb_tuned_model.pkl` - Tuned XGBoost model
-- `scaler.pkl` - Feature scaler
-- `feature_selector.pkl` - Feature selector
-- `feature_names.pkl` - Selected feature names
-- `model_comparison_results.csv` - Model performance comparison
+### Data Preprocessing
 
-### Step 2: Launch the Streamlit App
+✔ Dropped ID & date columns  
+✔ Median imputation for missing values  
+✔ Correlation analysis  
+✔ Stratified Train/Test split (80/20)  
 
-After running the pipeline, launch the interactive web application:
+---
 
-```bash
+## ⚙️ Model Pipeline
+
+---
+
+### 1️⃣ Baseline Models
+
+- 🌲 Random Forest  
+- ⚡ XGBoost (with class imbalance handling)
+
+---
+
+### 2️⃣ Hyperparameter Tuning
+
+Using:
+
+```
+GridSearchCV
+scoring = "recall"
+cv = 5
+```
+
+#### Random Forest Grid
+
+```
+max_depth: [3, 5, 8, 12]
+n_estimators: [100, 200]
+min_samples_split: [2, 5]
+```
+
+#### XGBoost Grid
+
+```
+max_depth: [3, 5, 7]
+learning_rate: [0.01, 0.1, 0.2]
+n_estimators: [100, 200]
+```
+
+---
+
+### 3️⃣ Feature Selection
+
+✔ Extracted feature importance from tuned RF  
+✔ Selected Top 10 features  
+✔ Retrained reduced model  
+✔ Compared performance  
+
+---
+
+### 4️⃣ Model Comparison
+
+All models evaluated on:
+
+✔ Recall  
+✔ ROC-AUC  
+
+Final model selected based on:
+
+```
+Highest Recall Score
+```
+
+---
+
+## 🏆 Final Artifacts
+
+Generated automatically after training:
+
+```
+optimal_model.pkl
+feature_names.pkl
+```
+
+These are used in the Streamlit deployment.
+
+---
+
+## 🚀 Streamlit Dashboard
+
+### UI Features
+
+✔ Black enterprise theme  
+✔ Manual transaction input  
+✔ Predefined risk simulation profiles  
+✔ Risk score visualization  
+✔ Dynamic fraud classification  
+✔ Feature importance chart  
+✔ Risk progress bar  
+
+---
+
+## 🎯 Risk Scoring Logic
+
+Probability threshold:
+
+```
+0.15
+```
+
+Risk classification:
+
+| Fraud Score | Risk Level |
+|-------------|------------|
+| ≤ 8         | LOW RISK |
+| 8 – 15      | SUSPICIOUS |
+| > 15        | HIGH RISK |
+
+Fraud score is calculated as:
+
+```
+probability * 100
+```
+
+---
+
+## 📈 Training Visualizations
+
+Generated and saved inside `/plots`:
+
+✔ Class distribution  
+✔ Correlation heatmap  
+✔ Feature importance  
+✔ Confusion matrix  
+✔ Model comparison  
+
+---
+
+## 🖥️ How To Run
+
+### 1️⃣ Install Dependencies
+
+```
+pip install -r requirements.txt
+```
+
+### 2️⃣ Train Model
+
+```
+python train_model.py
+```
+
+This generates:
+
+```
+optimal_model.pkl
+feature_names.pkl
+```
+
+### 3️⃣ Run Streamlit App
+
+```
 streamlit run app.py
 ```
 
-The app will open in your default web browser at `http://localhost:8501`
+---
 
-## Streamlit App Features
+## 📦 Project Structure
 
-### 1. Single Prediction
-- Enter transaction details manually
-- Get real-time fraud prediction
-- View probability scores and risk levels
-- See top contributing factors
+```
+.
+│
+├── app.py
+├── train_model.py
+├── Stori_Data_Challenge_2021..csv
+├── optimal_model.pkl
+├── feature_names.pkl
+├── requirements.txt
+│
+└── plots/
+    ├── class_distribution.png
+    ├── correlation_heatmap.png
+    ├── feature_importance.png
+    └── confusion_matrix.png
+```
 
-### 2. Batch Prediction
-- Upload a CSV file with multiple transactions
-- Get predictions for all transactions at once
-- Download results as CSV
+---
 
-### 3. Model Information
-- View model performance metrics
-- Compare different models
-- Understand the pipeline
+## 🧠 Technical Stack
 
-## Dataset Information
+- Python  
+- Pandas  
+- NumPy  
+- Scikit-learn  
+- XGBoost  
+- Matplotlib  
+- Seaborn  
+- Joblib  
+- Streamlit  
 
-The dataset contains the following features:
-- Customer information (ID, activation date, tenure)
-- Financial metrics (balance, credit limit, purchases, payments)
-- Transaction frequencies
-- Transaction counts
-- Target variable: `fraud` (0 = legitimate, 1 = fraudulent)
+---
 
-## Model Pipeline Details
+## 🔍 Why Recall Over Accuracy?
 
-1. **Data Preprocessing:**
-   - Handle missing values (median imputation)
-   - Convert date columns to numeric features
-   - Remove customer IDs
+In fraud detection:
 
-2. **Feature Selection:**
-   - SelectKBest with f_classif
-   - Selects top 15 most important features
+```
+False Negative > False Positive
+```
 
-3. **Feature Scaling:**
-   - StandardScaler for normalization
+Missing fraud is more costly than investigating a normal transaction.
 
-4. **Model Training:**
-   - Baseline models with default parameters
-   - Hyperparameter tuning with GridSearchCV
-   - 5-fold cross-validation
+Therefore:
 
-5. **Model Evaluation:**
-   - Accuracy, Precision, Recall, F1-Score
-   - ROC-AUC Score
-   - Confusion Matrix
+✔ Recall is prioritized  
+✔ Balanced class weights used  
+✔ scale_pos_weight applied in XGBoost  
 
-## Hyperparameter Tuning
+---
 
-### Random Forest:
-- `n_estimators`: [100, 200]
-- `max_depth`: [5, 10, 15, 20]
-- `min_samples_split`: [2, 5]
-- `min_samples_leaf`: [1, 2]
+## 🏁 Final Result
 
-### XGBoost:
-- `n_estimators`: [100, 200]
-- `max_depth`: [3, 5, 7, 10]
-- `learning_rate`: [0.01, 0.1, 0.2]
-- `subsample`: [0.8, 1.0]
+✔ Automated model selection  
+✔ Optimized for fraud detection recall  
+✔ Enterprise-level dashboard  
+✔ Real-time scoring  
+✔ Explainable risk drivers  
 
-## Results
+---
 
-The pipeline automatically compares all models and selects the best one based on ROC-AUC score. Results are saved in `model_comparison_results.csv`.
+## 👤 Author
 
-## Troubleshooting
+Abdul Rahman  
+B.Tech Artificial Intelligence & Data Science  
 
-1. **FileNotFoundError when running app.py:**
-   - Make sure you've run `fraud_detection_pipeline.py` first
-   - Check that all pickle files are in the same directory
-
-2. **Memory issues:**
-   - Reduce the number of features selected
-   - Reduce GridSearchCV parameter grid size
-   - Use a smaller dataset for testing
-
-3. **Import errors:**
-   - Make sure all dependencies are installed: `pip install -r requirements.txt`
-   - Check Python version (3.8+ recommended)
-
-## Author
-
-Created for Final Review Project - Fraud Transaction Detection
-
-## License
-
-This project is for educational purposes.
+---
