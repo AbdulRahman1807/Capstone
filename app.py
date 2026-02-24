@@ -1,163 +1,113 @@
-"""
-Streamlit App for Fraud Transaction Detection
-"""
-
 import streamlit as st
+import joblib
 import pandas as pd
 import numpy as np
-import joblib
-from datetime import datetime
-import warnings
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-warnings.filterwarnings('ignore')
+# App Title
+st.title("Fraud Detection App")
 
-st.set_page_config(
-    page_title="Fraud Transaction Detection",
-    page_icon="🔒",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.write("""
+This Streamlit app loads the pre-trained optimal model and selected features from the pickled files.
+You can input feature values to get fraud predictions. The app uses the top features selected during training.
+""")
 
-st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Load the saved model and feature names
+try:
+    best_model = joblib.load("optimal_model.pkl")
+    best_features = joblib.load("feature_names.pkl")
+    st.success("Model and features loaded successfully!")
+except FileNotFoundError:
+    st.error("Pickled files not found. Please ensure 'optimal_model.pkl' and 'feature_names.pkl' are in the directory.")
+    st.stop()
 
+# Display the features used
+st.subheader("Features Used by the Model")
+st.write(best_features)
 
-@st.cache_resource
-def load_models():
-    try:
-        optimal_model = joblib.load("optimal_model.pkl")
-        feature_names = joblib.load("feature_names.pkl")
+# Single Prediction Section
+st.header("Single Instance Prediction")
+st.write("Enter values for each feature below:")
 
-        return optimal_model, feature_names
-
-    except Exception as e:
-        st.error(f"Error loading model files: {str(e)}")
-        return None, None
-
-
-def preprocess_input(input_data, feature_names):
-    df = pd.DataFrame([input_data])
-
-    for feature in feature_names:
-        if feature not in df.columns:
-            df[feature] = 0
-
-    df_selected = df[feature_names]
-
-    return df_selected
-
-
-def main():
-    st.markdown(
-        '<h1 class="main-header">🔒 Fraud Transaction Detection System</h1>',
-        unsafe_allow_html=True
-    )
-
-    model, feature_names = load_models()
-
-    if model is None:
-        st.stop()
-
-    st.sidebar.title("Navigation")
-    page = st.sidebar.radio(
-        "Choose a page",
-        ["Single Prediction", "Batch Prediction", "Model Information"]
-    )
-
-    if page == "Single Prediction":
-        single_prediction_page(model, feature_names)
-
-    elif page == "Batch Prediction":
-        batch_prediction_page(model, feature_names)
-
-    else:
-        model_info_page()
-
-
-def single_prediction_page(model, feature_names):
-    st.header("Single Transaction Prediction")
-
-    balance = st.number_input("Balance", min_value=0.0, value=1000.0)
-    credit_limit = st.number_input("Credit Limit", min_value=0.0, value=5000.0)
-    purchases = st.number_input("Purchases", min_value=0.0, value=0.0)
-    cash_advance = st.number_input("Cash Advance", min_value=0.0, value=0.0)
-    tenure = st.number_input("Tenure", min_value=0, value=12)
-
-    input_data = {
-        "balance": balance,
-        "credit_limit": credit_limit,
-        "purchases": purchases,
-        "cash_advance": cash_advance,
-        "tenure": tenure
-    }
-
-    if st.button("🔍 Predict Fraud", use_container_width=True):
-
-        try:
-            processed_input = preprocess_input(
-                input_data, feature_names
-            )
-
-            prediction = model.predict(processed_input)[0]
-            proba = model.predict_proba(processed_input)[0]
-
-            fraud_prob = proba[1] * 100
-
-            if prediction == 1:
-                st.error(f"🚨 FRAUD DETECTED ({fraud_prob:.2f}%)")
-            else:
-                st.success(f"✅ LEGITIMATE ({100 - fraud_prob:.2f}%)")
-
-        except Exception as e:
-            st.error(f"Prediction error: {str(e)}")
-
-
-def batch_prediction_page(model, feature_names):
-    st.header("Batch Prediction")
-
-    uploaded_file = st.file_uploader("Upload CSV", type="csv")
-
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-
-        missing = [c for c in feature_names if c not in df.columns]
-
-        if missing:
-            st.error(f"Missing columns: {missing}")
-            return
-
-        df_selected = df[feature_names]
-
-        predictions = model.predict(df_selected)
-        probas = model.predict_proba(df_selected)[:, 1] * 100
-
-        df["fraud_prediction"] = predictions
-        df["fraud_probability"] = probas
-
-        st.dataframe(df.head())
-
-        csv = df.to_csv(index=False)
-
-        st.download_button(
-            "Download Results",
-            csv,
-            file_name=f"fraud_predictions_{datetime.now().strftime('%Y%m%d')}.csv"
+with st.form("prediction_form"):
+    inputs = {}
+    for feature in best_features:
+        # Assuming all features are numeric, use number_input with default value
+        inputs[feature] = st.number_input(
+            feature,
+            value=0.0,
+            help="Enter a numeric value for this feature."
         )
+    
+    submit_button = st.form_submit_button("Predict Fraud")
 
+if submit_button:
+    # Create DataFrame from inputs
+    input_df = pd.DataFrame([inputs])
+    
+    # Predict class and probability
+    prediction = best_model.predict(input_df)[0]
+    probability = best_model.predict_proba(input_df)[0][1]
+    
+    # Display results
+    st.subheader("Prediction Result")
+    if prediction == 1:
+        st.error(f"**Fraud Detected!** Probability: {probability:.2f}")
+    else:
+        st.success(f"**Not Fraud.** Probability of Fraud: {probability:.2f}")
+    
+    # Visualize probability
+    fig, ax = plt.subplots(figsize=(6, 1))
+    sns.barplot(x=[probability, 1 - probability], y=["Fraud", "Not Fraud"], ax=ax, palette="coolwarm")
+    ax.set_title("Fraud Probability")
+    ax.set_xlabel("Probability")
+    st.pyplot(fig)
+    plt.close(fig)
 
-def model_info_page():
-    st.header("Model Information")
-    st.write("Fraud Detection using RandomForest / XGBoost")
+# Batch Prediction Section
+st.header("Batch Prediction")
+st.write("Upload a CSV file with the required features for batch predictions.")
 
+uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-if __name__ == "__main__":
-    main()
+if uploaded_file is not None:
+    batch_df = pd.read_csv(uploaded_file)
+    
+    # Check if all required features are present
+    missing_features = [f for f in best_features if f not in batch_df.columns]
+    if missing_features:
+        st.error(f"Missing features in uploaded file: {missing_features}")
+    else:
+        # Select only the required features
+        batch_X = batch_df[best_features]
+        
+        # Predict
+        batch_predictions = best_model.predict(batch_X)
+        batch_probabilities = best_model.predict_proba(batch_X)[:, 1]
+        
+        # Add to DataFrame
+        batch_df['Predicted_Fraud'] = batch_predictions
+        batch_df['Fraud_Probability'] = batch_probabilities
+        
+        # Display results
+        st.subheader("Batch Prediction Results")
+        st.dataframe(batch_df)
+        
+        # Download button
+        csv = batch_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Predictions as CSV",
+            data=csv,
+            file_name="fraud_predictions.csv",
+            mime="text/csv"
+        )
+        
+        # Visualize distribution
+        st.subheader("Distribution of Predictions")
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        sns.countplot(x=batch_predictions, ax=ax2)
+        ax2.set_title("Predicted Fraud Distribution")
+        ax2.set_xlabel("Predicted Class (0: Not Fraud, 1: Fraud)")
+        st.pyplot(fig2)
+        plt.close(fig2)
