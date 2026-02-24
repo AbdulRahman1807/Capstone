@@ -1,113 +1,304 @@
 import streamlit as st
 import joblib
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-# App Title
-st.title("Fraud Detection App")
+st.set_page_config(page_title="Fraud Detection", layout="wide")
 
-st.write("""
-This Streamlit app loads the pre-trained optimal model and selected features from the pickled files.
-You can input feature values to get fraud predictions. The app uses the top features selected during training.
-""")
+# ======================
+# BLACK ENTERPRISE THEME
+# ======================
 
-# Load the saved model and feature names
+st.markdown("""
+<style>
+html, body, [data-testid="stAppViewContainer"] {
+    background-color: #000000;
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
+}
+
+.block-container {
+    padding-left: 4rem;
+    padding-right: 4rem;
+}
+
+h1 { font-size: 36px; font-weight: bold; }
+h2 { font-size: 24px; font-weight: 600; }
+
+.metric-box {
+    border: 1px solid #444;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ======================
+# LOAD ARTIFACTS
+# ======================
+
 try:
-    best_model = joblib.load("optimal_model.pkl")
-    best_features = joblib.load("feature_names.pkl")
-    st.success("Model and features loaded successfully!")
-except FileNotFoundError:
-    st.error("Pickled files not found. Please ensure 'optimal_model.pkl' and 'feature_names.pkl' are in the directory.")
+    model = joblib.load("optimal_model.pkl")
+    feature_names = joblib.load("feature_names.pkl")
+except:
+    st.error("Model artifacts missing.")
     st.stop()
 
-# Display the features used
-st.subheader("Features Used by the Model")
-st.write(best_features)
+# ======================
+# SIMULATION PROFILES
+# ======================
 
-# Single Prediction Section
-st.header("Single Instance Prediction")
-st.write("Enter values for each feature below:")
+low_risk_profile = {
+    "payments": 2000,
+    "purchases": 1200,
+    "credit_limit": 6000,
+    "oneoff_purchases": 300,
+    "minimum_payments": 400,
+    "balance": 500,
+    "purchases_trx": 10,
+    "cash_advance": 50,
+    "cash_advance_trx": 1,
+    "oneoff_purchases_frequency": 0.3
+}
 
-with st.form("prediction_form"):
-    inputs = {}
-    for feature in best_features:
-        # Assuming all features are numeric, use number_input with default value
-        inputs[feature] = st.number_input(
-            feature,
-            value=0.0,
-            help="Enter a numeric value for this feature."
-        )
-    
-    submit_button = st.form_submit_button("Predict Fraud")
+medium_risk_profile = {
+    "payments": 800,
+    "purchases": 2000,
+    "credit_limit": 5000,
+    "oneoff_purchases": 1000,
+    "minimum_payments": 150,
+    "balance": 2000,
+    "purchases_trx": 25,
+    "cash_advance": 800,
+    "cash_advance_trx": 5,
+    "oneoff_purchases_frequency": 0.6
+}
 
-if submit_button:
-    # Create DataFrame from inputs
-    input_df = pd.DataFrame([inputs])
-    
-    # Predict class and probability
-    prediction = best_model.predict(input_df)[0]
-    probability = best_model.predict_proba(input_df)[0][1]
-    
-    # Display results
-    st.subheader("Prediction Result")
-    if prediction == 1:
-        st.error(f"**Fraud Detected!** Probability: {probability:.2f}")
+high_risk_profile = {
+    "payments": 100,
+    "purchases": 3000,
+    "credit_limit": 4000,
+    "oneoff_purchases": 2000,
+    "minimum_payments": 50,
+    "balance": 3500,
+    "purchases_trx": 40,
+    "cash_advance": 2500,
+    "cash_advance_trx": 12,
+    "oneoff_purchases_frequency": 0.9
+}
+
+# ======================
+# TITLE
+# ======================
+
+st.title("Fraud Detection System")
+st.write("Enterprise Transaction Risk Assessment")
+st.markdown("<hr>", unsafe_allow_html=True)
+
+# ======================
+# PROFILE SELECTOR
+# ======================
+
+profile_option = st.radio(
+    "Select Transaction Profile",
+    ["Manual Input", "Low Risk Sample", "Medium Risk Sample", "High Risk Sample"],
+    horizontal=True
+)
+
+if profile_option == "Low Risk Sample":
+    active_profile = low_risk_profile
+elif profile_option == "Medium Risk Sample":
+    active_profile = medium_risk_profile
+elif profile_option == "High Risk Sample":
+    active_profile = high_risk_profile
+else:
+    active_profile = {}
+
+# ======================
+# FEATURE TYPE GROUPS
+# ======================
+
+monetary_features = [
+    "payments", "purchases", "credit_limit",
+    "oneoff_purchases", "minimum_payments",
+    "balance", "cash_advance"
+]
+
+transaction_count_features = [
+    "purchases_trx", "cash_advance_trx"
+]
+
+frequency_features = [
+    "oneoff_purchases_frequency"
+]
+
+# ======================
+# LAYOUT
+# ======================
+
+left_col, right_col = st.columns([3, 2])
+
+# ======================
+# INPUT PANEL
+# ======================
+
+with left_col:
+
+    st.subheader("Transaction Input")
+
+    with st.form("fraud_form"):
+        col1, col2 = st.columns(2)
+        inputs = {}
+
+        for i, feature in enumerate(feature_names):
+
+            default = active_profile.get(feature, 0)
+
+            with col1 if i < len(feature_names)/2 else col2:
+
+                if feature in monetary_features:
+                    inputs[feature] = st.number_input(
+                        feature,
+                        value=int(default),
+                        min_value=0,
+                        step=100,
+                        format="%d"
+                    )
+
+                elif feature in transaction_count_features:
+                    inputs[feature] = st.number_input(
+                        feature,
+                        value=int(default),
+                        min_value=0,
+                        step=1,
+                        format="%d"
+                    )
+
+                elif feature in frequency_features:
+                    inputs[feature] = st.number_input(
+                        feature,
+                        value=float(default),
+                        min_value=0.0,
+                        max_value=1.0,
+                        step=0.01,
+                        format="%.2f"
+                    )
+
+                else:
+                    inputs[feature] = st.number_input(feature, value=float(default))
+
+        submitted = st.form_submit_button("Run Risk Analysis")
+
+# ======================
+# PREDICTION
+# ======================
+
+if submitted:
+
+    input_df = pd.DataFrame([inputs])[feature_names]
+
+    threshold = 0.15
+    probability = model.predict_proba(input_df)[0][1]
+    prediction = 1 if probability >= threshold else 0
+    score = probability * 100
+
+    if score <= 8:
+        risk_level = "LOW RISK"
+        color = "#16A34A"
+    elif score <= 15:
+        risk_level = "SUSPICIOUS"
+        color = "#F59E0B"
     else:
-        st.success(f"**Not Fraud.** Probability of Fraud: {probability:.2f}")
-    
-    # Visualize probability
-    fig, ax = plt.subplots(figsize=(6, 1))
-    sns.barplot(x=[probability, 1 - probability], y=["Fraud", "Not Fraud"], ax=ax, palette="coolwarm")
-    ax.set_title("Fraud Probability")
-    ax.set_xlabel("Probability")
-    st.pyplot(fig)
-    plt.close(fig)
+        risk_level = "HIGH RISK"
+        color = "#DC2626"
 
-# Batch Prediction Section
-st.header("Batch Prediction")
-st.write("Upload a CSV file with the required features for batch predictions.")
+    class_label = "FRAUD" if prediction == 1 else "NOT FRAUD"
+    class_color = "#DC2626" if prediction == 1 else "#16A34A"
 
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    with right_col:
 
-if uploaded_file is not None:
-    batch_df = pd.read_csv(uploaded_file)
-    
-    # Check if all required features are present
-    missing_features = [f for f in best_features if f not in batch_df.columns]
-    if missing_features:
-        st.error(f"Missing features in uploaded file: {missing_features}")
-    else:
-        # Select only the required features
-        batch_X = batch_df[best_features]
-        
-        # Predict
-        batch_predictions = best_model.predict(batch_X)
-        batch_probabilities = best_model.predict_proba(batch_X)[:, 1]
-        
-        # Add to DataFrame
-        batch_df['Predicted_Fraud'] = batch_predictions
-        batch_df['Fraud_Probability'] = batch_probabilities
-        
-        # Display results
-        st.subheader("Batch Prediction Results")
-        st.dataframe(batch_df)
-        
-        # Download button
-        csv = batch_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download Predictions as CSV",
-            data=csv,
-            file_name="fraud_predictions.csv",
-            mime="text/csv"
+        st.subheader("Risk Assessment")
+
+        st.markdown(f"""
+        <div class="metric-box" style="border-color:{color}">
+            <h3 style="color:{class_color}; margin-bottom:10px;">
+                Predicted Class: {class_label} ({prediction})
+            </h3>
+            <h2 style="color:{color};">{risk_level}</h2>
+            <h1>{score:.2f}</h1>
+            <p>Fraud Risk Score</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="margin-top:20px;">
+            <div style="background:#222;height:8px;border-radius:6px;">
+                <div style="width:{score}%;background:{color};height:8px;border-radius:6px;"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("### Risk Interpretation")
+        st.write("• ≤ 8 → Normal Transaction")
+        st.write("• 8–15 → Suspicious Activity")
+        st.write("• > 15 → High Fraud Likelihood")
+
+    # ======================
+    # RISK ANALYTICS
+    # ======================
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.subheader("Risk Analytics")
+
+    colA, colB = st.columns(2)
+
+    with colA:
+        fig, ax = plt.subplots(figsize=(6, 0.4))
+        ax.barh([0], [100], color="#222")
+        ax.barh([0], [score], color=color)
+        ax.set_xlim(0, 100)
+        ax.set_yticks([])
+        ax.set_xticks([])
+        ax.set_facecolor("black")
+        fig.patch.set_facecolor("black")
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.text(
+            score - 5 if score > 10 else score + 2,
+            0,
+            f"{score:.1f}",
+            va='center',
+            ha='right' if score > 10 else 'left',
+            color="white",
+            fontsize=10
         )
-        
-        # Visualize distribution
-        st.subheader("Distribution of Predictions")
-        fig2, ax2 = plt.subplots(figsize=(6, 4))
-        sns.countplot(x=batch_predictions, ax=ax2)
-        ax2.set_title("Predicted Fraud Distribution")
-        ax2.set_xlabel("Predicted Class (0: Not Fraud, 1: Fraud)")
-        st.pyplot(fig2)
-        plt.close(fig2)
+
+        st.pyplot(fig)
+
+    with colB:
+        if hasattr(model, "feature_importances_"):
+
+            importances = model.feature_importances_
+
+            df_imp = pd.DataFrame({
+                "Feature": feature_names,
+                "Importance": importances
+            }).sort_values(by="Importance", ascending=False).head(5)
+
+            fig2, ax2 = plt.subplots(figsize=(6, 3))
+            ax2.barh(df_imp["Feature"], df_imp["Importance"], color="#888888")
+            ax2.invert_yaxis()
+            ax2.set_facecolor("black")
+            fig2.patch.set_facecolor("black")
+            ax2.tick_params(colors="white")
+            for spine in ax2.spines.values():
+                spine.set_color("white")
+            ax2.set_title("Top Risk Drivers (Global Importance)", color="white")
+
+            st.pyplot(fig2)
+
+else:
+    with right_col:
+        st.info("Enter transaction details and run analysis.")
