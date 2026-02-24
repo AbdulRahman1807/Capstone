@@ -27,19 +27,6 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
-    .prediction-box {
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    .fraud {
-        background-color: #ffebee;
-        border-left: 5px solid #f44336;
-    }
-    .legitimate {
-        background-color: #e8f5e9;
-        border-left: 5px solid #4caf50;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -48,18 +35,16 @@ st.markdown("""
 def load_models():
     try:
         optimal_model = joblib.load("optimal_model.pkl")
-        scaler = joblib.load("scaler.pkl")
-        feature_selector = joblib.load("feature_selector.pkl")
         feature_names = joblib.load("feature_names.pkl")
 
-        return optimal_model, scaler, feature_selector, feature_names
+        return optimal_model, feature_names
 
     except Exception as e:
         st.error(f"Error loading model files: {str(e)}")
-        return None, None, None, None
+        return None, None
 
 
-def preprocess_input(input_data, feature_names, scaler):
+def preprocess_input(input_data, feature_names):
     df = pd.DataFrame([input_data])
 
     for feature in feature_names:
@@ -67,9 +52,8 @@ def preprocess_input(input_data, feature_names, scaler):
             df[feature] = 0
 
     df_selected = df[feature_names]
-    df_scaled = scaler.transform(df_selected)
 
-    return df_scaled
+    return df_selected
 
 
 def main():
@@ -78,9 +62,9 @@ def main():
         unsafe_allow_html=True
     )
 
-    optimal_model, scaler, feature_selector, feature_names = load_models()
+    model, feature_names = load_models()
 
-    if optimal_model is None:
+    if model is None:
         st.stop()
 
     st.sidebar.title("Navigation")
@@ -90,16 +74,16 @@ def main():
     )
 
     if page == "Single Prediction":
-        single_prediction_page(optimal_model, scaler, feature_names)
+        single_prediction_page(model, feature_names)
 
     elif page == "Batch Prediction":
-        batch_prediction_page(optimal_model, scaler, feature_names)
+        batch_prediction_page(model, feature_names)
 
     else:
         model_info_page()
 
 
-def single_prediction_page(model, scaler, feature_names):
+def single_prediction_page(model, feature_names):
     st.header("Single Transaction Prediction")
 
     balance = st.number_input("Balance", min_value=0.0, value=1000.0)
@@ -120,7 +104,7 @@ def single_prediction_page(model, scaler, feature_names):
 
         try:
             processed_input = preprocess_input(
-                input_data, feature_names, scaler
+                input_data, feature_names
             )
 
             prediction = model.predict(processed_input)[0]
@@ -137,7 +121,7 @@ def single_prediction_page(model, scaler, feature_names):
             st.error(f"Prediction error: {str(e)}")
 
 
-def batch_prediction_page(model, scaler, feature_names):
+def batch_prediction_page(model, feature_names):
     st.header("Batch Prediction")
 
     uploaded_file = st.file_uploader("Upload CSV", type="csv")
@@ -151,10 +135,10 @@ def batch_prediction_page(model, scaler, feature_names):
             st.error(f"Missing columns: {missing}")
             return
 
-        df_scaled = scaler.transform(df[feature_names])
+        df_selected = df[feature_names]
 
-        predictions = model.predict(df_scaled)
-        probas = model.predict_proba(df_scaled)[:, 1] * 100
+        predictions = model.predict(df_selected)
+        probas = model.predict_proba(df_selected)[:, 1] * 100
 
         df["fraud_prediction"] = predictions
         df["fraud_probability"] = probas
